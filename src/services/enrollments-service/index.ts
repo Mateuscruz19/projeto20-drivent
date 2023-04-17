@@ -5,25 +5,26 @@ import { invalidCepError } from '@/errors/invalid-cep-error';
 import addressRepository, { CreateAddressParams } from '@/repositories/address-repository';
 import enrollmentRepository, { CreateEnrollmentParams } from '@/repositories/enrollment-repository';
 import { exclude } from '@/utils/prisma-utils';
+import { AddressEnrollment } from '@/protocols';
 
-async function getAddressFromCEP(cep: string) {
-  if (cep.replace('-', '').length !== 8) {
-    throw invalidCepError();
+async function getAddressFromCEP(cep: string): Promise<AddressEnrollment> {
+  const result = await request.get(`${process.env.VIA_CEP_API}/${cep}/json/`);
+
+  if (!result.data || result.data.erro) {
+    throw notFoundError(); // lança um erro para quem chamou essa função!
   }
 
-  const { data: result } = await request.get(`${process.env.VIA_CEP_API}/${cep}/json/`);
+  const { bairro, localidade, uf, complemento, logradouro } = result.data;
 
-  if (result.erro) {
-    throw invalidDataError(['invalid CEP']);
-  }
-
-  return {
-    logradouro: result.logradouro,
-    complemento: result.complemento,
-    bairro: result.bairro,
-    cidade: result.localidade,
-    uf: result.uf,
+  const address: AddressEnrollment = {
+    bairro,
+    cidade: localidade,
+    uf,
+    complemento,
+    logradouro,
   };
+
+  return address;
 }
 
 async function getOneWithAddressByUserId(userId: number): Promise<GetOneWithAddressByUserIdResult> {
